@@ -1,0 +1,37 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>NERF Assassin</title>
+    <script src="js/jquery.tools.min.js"></script>
+    <script src="js/formlabels.js" type="text/javascript" charset="utf-8"></script>
+	
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="home-wrapper">
+    <div class="home-wrapper-logo">
+        <div class="form-wrapper">
+		[confirm_begin]
+            <form action="{url}" name="confirmform" method="POST">
+		<input type="hidden" name="confirmed" value=0>
+		<input type="hidden" name="confirm" value="{confirm}">
+            </form>
+		[confirm_end]
+            <a href="#" onclick="document.confirmform.confirmed.value=1; document.confirmform.submit()">Confirm Kill</a>
+            <a href="#" onclick="document.confirmform.confirmed.value=0; document.confirmform.submit()">Not Killed</a>
+            <a href="#" onclick="javascript:goback()">Back</a>
+            </form>
+            <script>
+            function goback() {
+               history.go(-1);
+               return false;
+            }
+            </script>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

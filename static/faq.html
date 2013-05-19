@@ -1,0 +1,65 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>NERF Assassin</title>
+    <script src="js/jquery.tools.min.js"></script>
+	<script src="js/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="js/jquery.fancybox-1.3.4.js"></script>
+    <script>
+    $(document).ready(function() {
+		$(".score-chart-accordion").accordion({
+			collapsible: true, 
+			autoHeight: false, 
+			active: false,
+			animated: 'bounceslide'
+		});
+		$("#editprofile-link").fancybox({
+			'titlePosition'		: 'inside',
+			'transitionIn'		: 'none',
+			'transitionOut'		: 'none'
+		});   
+		$("#changepassword-link").fancybox({
+			'titlePosition'		: 'inside',
+			'transitionIn'		: 'none',
+			'transitionOut'		: 'none'
+		});   
+    });
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="int-wrapper">
+    <header class="int-header">
+		<div class="int-header-wrapper">
+        	<nav><a href="games">View Games</a><a href="stats">View Stats</a>[loggedin_begin]<a href="{url}">{text}</a>{logout}[loggedin_end]</nav>
+        </div>
+    </header>
+    
+    <div class="int-container">
+        
+        <div class="score-chart">
+            <ul class="title-bar-row">
+                <li class="col-wide">FAQ</li>
+            </ul>
+	[faq_begin]
+         <div class="score-chart-accordion">
+            <ul class="info-bar-row">
+                <li class="col-wide">{question}</li>
+            </ul>
+            <div>
+                <ul class="sub-info-bar-row">
+                    <li class="col-wide">{answer}</li>
+                </ul>
+            </div>
+            </div>
+	[faq_end]
+        </div>
+    </div>
+ 
+
+</div>
+<div style="clear:both; padding-top:10px;"></div>
+</body>
+</html>

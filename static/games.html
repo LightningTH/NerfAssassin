@@ -1,0 +1,277 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>NERF Assassin</title>
+    <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+    <script src="js/jquery.tools.min.js"></script>
+	<script src="js/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="js/jquery.fancybox-1.3.4.js"></script>
+	<script src="js/jquery.countdown.js"></script>
+	<script src="js/jquery.calendrical.js"></script>
+	<script>
+      $(document).ready(function() {
+        $(".score-chart-accordion").accordion({
+                    collapsible: true, 
+                    autoHeight: false, 
+                    active: false,
+                    animated: 'bounceslide'
+                });
+		[newgame_begin]
+		$("#newgame-link").fancybox({
+			'titlePosition'		: 'inside',
+			'transitionIn'		: 'none',
+			'transitionOut'		: 'none'
+		});   
+		[newgame_end]
+      });
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+	<style TYPE="text/css">
+.calendricalDatePopup {
+  background: white;
+  border: solid 1px #999999;
+  padding: 2px;
+  text-align: center;
+  width: 160px; }
+  .calendricalDatePopup table {
+    border-collapse: collapse;
+    width: 160px; }
+    .calendricalDatePopup table .monthCell {
+      padding: 2px 0; }
+      .calendricalDatePopup table .monthCell a {
+        display: block;
+        float: left;
+        line-height: 20px; }
+      .calendricalDatePopup table .monthCell .prevMonth, .calendricalDatePopup table .monthCell .nextMonth {
+        width: 24px; }
+      .calendricalDatePopup table .monthCell .monthName {
+        width: 110px; }
+    .calendricalDatePopup table a {
+      text-decoration: none; }
+    .calendricalDatePopup table th {
+      text-align: center; }
+    .calendricalDatePopup table td {
+      text-align: center;
+      font-size: 12px;
+      padding: 0; }
+      .calendricalDatePopup table td a {
+        display: block;
+        color: black;
+        padding: 2px 3px; }
+        .calendricalDatePopup table td a:hover {
+          background: #ccccff;
+          border: none;
+          padding: 2px 3px; }
+      .calendricalDatePopup table td.today a {
+        background: #eeeebb; }
+      .calendricalDatePopup table td.selected a {
+        background: #ccccff; }
+      .calendricalDatePopup table td.today_selected a {
+        background: #eeeebb;
+        border: solid 1px #dddd66;
+        padding: 1px 2px; }
+      .calendricalDatePopup table td.nonMonth a {
+        color: #999999; }
+
+.calendricalTimePopup {
+  background: white;
+  border: solid 1px #999999;
+  width: 110px;
+  height: 130px;
+  overflow: auto; }
+  .calendricalTimePopup ul {
+    margin: 0;
+    padding: 0; }
+    .calendricalTimePopup ul li {
+      list-style: none;
+      margin: 0; }
+      .calendricalTimePopup ul li a, .calendricalTimePopup ul li a:visited {
+        text-indent: 10px;
+        padding: 4px;
+        display: block;
+        color: black;
+        text-decoration: none; }
+      .calendricalTimePopup ul li a:hover, .calendricalTimePopup ul li.selected a {
+        background: #ccccff; }
+
+.calendricalEndTimePopup {
+  width: 160px; }
+	</style>
+
+</head>
+<body>
+
+<div class="int-wrapper">
+    <header class="int-header">
+		<div class="int-header-wrapper">
+        	<nav>[joingame_begin]<a id="{id}" href="{url}">{text}</a>[joingame_end]<a href="games">View Games</a><a href="stats">View Stats</a>[loggedin_begin]<a href="{url}">{text}</a>{logout}[loggedin_end]</nav>
+        </div>
+    </header>
+	[creategame_begin]
+            <div style="display: none;">
+            <div id="newgame">
+                <div class="title">Create Game</div>
+			<form action="creategame" method="post" name="GameForm">
+                    <div><label for="gamestart">Game Start:</label><input name="gamestart_date" id="gamestart_date" value="{startdate}"> <input name="gamestart_time" id="gamestart_time" value="{starttime}"></div>
+                    <div><label for="gamerules">Game Rules:</label><select id="gamerules" name="gamerules" onchange="CheckSelection(this)"><option value="0">--New Rules--</option>[rulelist_begin]<option value="{id}">{name}</option>[rulelist_end]</select></div>
+                    <div class="newgame_canhide" id="test1"><label for="newrules">New Rule Name:</label><input name="newrules_name" id="newrules_name"></div>
+                    <div class="newgame_canhide" id="test2"><label for="newrules">New Rules:</label><textarea name="newrules" id="newrules_textarea"></textarea></div>
+                    <div><br><a href="#" onclick="document.GameForm.submit()">Create Game</a></div>
+			</form>
+            </div>
+            </div>
+    
+	<script type="text/javascript">
+		var RuleData=[""[ruledata_begin],"{rules}"[ruledata_end]];
+
+		function CheckSelection(sel) {
+			var oldname;
+			var newname;
+			if(sel.selectedIndex == 0) {
+				var object = document.getElementById('newrules_textarea')
+				object.readOnly = false;
+				object.style.background = '#ffffff';
+
+				var object = document.getElementById('newrules_name')
+				object.disabled = false;
+				object.style.background = '#ffffff';
+				object.value = "";
+			} else {
+				var object = document.getElementById('newrules_textarea')
+				object.readOnly = true;
+				object.style.background = '#e0e0e0';
+				object.value = RuleData[sel.selectedIndex];
+
+				var object = document.getElementById('newrules_name')
+				object.disabled = true;
+				object.style.background = '#e0e0e0';
+				object.value = sel[sel.selectedIndex].text;
+			}
+		}
+		document.getElementById('gamerules').selectedIndex = {firstindex};
+		CheckSelection(document.getElementById('gamerules'));
+	</script>
+	[creategame_end]
+
+    <div class="int-container">
+	[counter_begin]
+	<script>
+      $(function(){
+
+        var count = $('#count'),
+            endts = new Date({year},{month},{day},{hour},{minute},0), //YYYY, MM, DD - Months are 0 - 11 (Jan = 0, Dec = 11)
+            newYear = true;
+
+        var serverts = new Date({serveryear}, {servermonth}, {serverday}, {serverhour}, {serverminute}, 0);
+        var tsdiff = new Date(new Date().getTime() - serverts.getTime());
+        var ts = new Date(endts.getTime() + tsdiff.getTime());
+
+        $('#countdown').countdown({
+            timestamp   : ts,
+            callback    : function(days, hours, minutes, seconds){
+
+                var message = "";
+
+                message += days + " day" + ( days==1 ? '':'s' ) + ", ";
+                message += hours + " hour" + ( hours==1 ? '':'s' ) + ", ";
+                message += minutes + " minute" + ( minutes==1 ? '':'s' ) + " and ";
+                message += seconds + " second" + ( seconds==1 ? '':'s' ) + "";
+
+                if(newYear){
+                    message += "";
+                }
+                else {
+                    message += "";
+                }
+
+                count.html(message);
+            }
+        });
+
+    });
+	</script>
+    	<div class="countdown-title">Next game starts in:</div>
+        <div id="count"></div>
+	[counter_end]
+
+
+        <div class="score-chart">
+		[latest_game_begin]
+            <ul class="title-bar-row">
+                <li class="col-1-small">{game_start}</li>
+		<li class="col-1-small2"><a href="#" class="smacktalk">Rules</a><div class=tooltip>{rules}</div></li>
+                <li class="col-2">Assassins</li>
+                <li class="col-3">Assassinated By</li>
+                <li class="col-4">Final Place</li>
+            </ul>
+		[winner_begin]
+            <ul class="sub-info-bar-row">
+                <li class="col-1">&nbsp;</li>
+                <li class="col-2">{name}</li>
+                <li class="col-3">&nbsp;</li>
+                <li class="col-4">&nbsp;</li>
+            </ul>
+		[winner_end]
+            <div>
+		[players_begin]
+                <ul class="sub-info-bar-row">
+                    <li class="col-1">{kill_date}</li>
+                    <li class="col-2"><a href="profile?id={profile_id}">{name}</a></li>
+                    <li class="col-3"><a href="profile?id={killer_profile_id}">{killer_name}</a></li>
+                    <li class="col-4">{rank}</li>
+                </ul>
+		[players_end]
+		[latest_game_end]
+        </div>
+        
+        <div class="score-chart">
+            <ul class="title-bar-row">
+                <li class="col-1">Game Date</li>
+                <li class="col-2">Assassins</li>
+                <li class="col-3">Assassinated By</li>
+                <li class="col-4">Final Place</li>
+            </ul>
+         <div class="score-chart-accordion">
+		[games_begin]
+            <ul class="info-bar-row">
+                <li class="col-1">{game_start} - {game_end}</li>
+                <li class="col-2"> </li>
+                <li class="col-3"> </li>
+                <li class="col-4"><a href="#" class="smacktalk">Rules</a><div class=tooltip>{rules}</div></li>
+            </ul>
+            <div>
+		[winner_begin]
+                <ul class="winner-bar-row">
+                <li class="col-1">Winner</li>
+                <li class="col-2"><a href="profile?id={profile_id}">{name}</a></li>
+                <li class="col-3"> </li>
+                <li class="col-4">{rank}</li>
+            </ul>
+		[winner_end]
+		[players_begin]
+                <ul class="sub-info-bar-row">
+                    <li class="col-1">{kill_date}</li>
+                    <li class="col-2"><a href="profile?id={profile_id}">{name}</a></li>
+                    <li class="col-3"><a href="profile?id={killer_profile_id}">{killer_name}</a></li>
+                    <li class="col-4">{rank}</li>
+                </ul>
+		[players_end]
+            </div>
+		[games_end]
+	</div>
+    </div>
+  </div>
+</div>
+ 
+ <script>
+  $(document).ready(function() {
+      $(".smacktalk").tooltip({ effect: 'fade'});
+      $('#gamestart_date').calendricalDate({usa: 1});
+      $('#gamestart_time').calendricalTime({timeInterval: 60});
+    });
+</script>
+</div>
+<div style="clear:both; padding-top:10px;"></div>
+</body>
+</html>

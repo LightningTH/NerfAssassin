@@ -1,0 +1,59 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>NERF Assassin</title>
+    <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+    <script src="js/jquery.tools.min.js"></script>
+	<script src="js/jquery-ui.min.js"></script>
+    <script>
+    $(document).ready(function() {
+    $(".score-chart-accordion").accordion({
+                collapsible: true, 
+                autoHeight: false, 
+                active: false,
+                animated: 'bounceslide'
+            });
+            
+    });
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="int-wrapper">
+    <header class="int-header">
+		<div class="int-header-wrapper">
+        	<nav><a href="games">View Games</a><a href="stats">View Stats</a>[loggedin_begin]<a href="{url}">{text}</a>{logout}[loggedin_end]</nav>
+        </div>
+    </header>
+    
+    <div class="int-container">
+        
+        <div class="score-chart">
+            <ul class="title-bar-row">
+                <li class="col-1">Players</li>
+                <li class="col-2">Total Assassinations</li>
+                <li class="col-3">Total Deaths</li>
+                <li class="col-4">Overall Place</li>
+            </ul>
+            <div>
+		[stat_begin]
+                <ul class="sub-info-bar-row">
+                    <li class="col-1"><a href="profile?id={profile_id}">{firstname} {lastname} ({nickname})</a></li>
+                    <li class="col-2">{total_assassinations}</li>
+                    <li class="col-3">{total_deaths}</li>
+                    <li class="col-4">{rank}</li>
+                </ul>
+		[stat_end]
+            
+            </div>
+        </div>
+    </div>
+ 
+
+ 
+</div>
+<div style="clear:both; padding-top:10px;"></div>
+</body>
+</html>
