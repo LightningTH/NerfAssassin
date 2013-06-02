@@ -43,36 +43,36 @@ class NerfAssassin:
 			db.execute(cherrypy.thread_data.conn,"delete from games where id=?", (gameid,))
 			return
 
+		Game = NerfGames.GetGameByID(gametype)
+		Game.NerfAssassin = NerfAssassin
+		Game.db = db
+		Game.GameID = gameid
+		Game.GameTypeID = gametype
+
 		(id, assassin_id, target_id) = players[0]
 		if(target_id == None):
-			Game = NerfGames.GetGameByID(gametype)
+			Game.AssignPlayers(players)
+	
+		else:
+			#game has assignments, see if the game is over yet
+			Game = NerfAssassin.GetGameByID(gametype)
 			Game.NerfAssassin = NerfAssassin
 			Game.db = db
 			Game.GameID = gameid
 			Game.GameTypeID = gametype
-			Game.AssignPlayers(players)
-			del Game
-	
-		else:
-			#game has assignments, see if the game is over yet
-			(ret, playersleft) = db.fetchOne(cherrypy.thread_data.conn,"select count(id) from gameinfo where game_id=? and killer_id is null and target_id is not null", (gameid,))
-			(playercount, ) = playersleft
-			if(playercount == 0):
+			if(Game.IsGameOver()):
 				#if no one left to kill, game over
 				db.execute(cherrypy.thread_data.conn,"update games set end_datetime=datetime(\"now\") where id=?", (gameid,))
 
 				#remove any outstanding reports
 				db.execute(cherrypy.thread_data.conn,"delete from gameinfo where reporting_killer is not null and target_id is null and game_id=?",(gameid,))
 
-				Game = NerfAssassin.GetGameByID(gametype)
-				Game.NerfAssassin = NerfAssassin
-				Game.db = db
-				Game.GameID = gameid
-				Game.GameTypeID = gametype
+				#do a stats update for the game type
 				Game.CalculateStats()
-				del Game
-				return
+			else:
+				Game.CheckConfirmationTimeout()
 
+		del Game
 		return
 
 	def SendEmail(self, toemail, msgtext, picture=None):
@@ -87,7 +87,7 @@ class NerfAssassin:
 			msg.attach(pic)
 
 		#go get the config settings
-		(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, value from config")
+		(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, value from config where name in ('from_email', 'email_subject', 'email_server')")
 
 		for (conf_name, conf_value) in Config:
 			if(conf_name == "from_email"):

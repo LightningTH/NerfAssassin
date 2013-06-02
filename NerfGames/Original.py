@@ -8,6 +8,34 @@ class NerfGame:
 	db = None
 	NerfAssassin = None
 
+	def IsGameOver(self):
+		#if no players left then return that the game is over
+		(ret, playersleft) = self.db.fetchOne(cherrypy.thread_data.conn,"select count(id) from gameinfo where game_id=? and killer_id is null and target_id is not null", (self.GameID,))
+		(playercount, ) = playersleft
+		if(playercount == 0):
+			return False
+		return True
+
+	def CheckConfirmationTimeout(self):
+		#see if any confirmations are out of time and auto-confirm them
+		(ret, confirms) = self.db.fetchAll(cherrypy.thread_data.conn,"select id, kill_datetime [timestamp], reporting_killer from gameinfo where game_id=? and assassin_id is not null and target_id is not null and reporting_killer is not null and confirm_hash is not null and killer_id is null", (self.GameID,))
+
+		if(len(confirms) == 0):
+			return
+
+		#get the config default time
+		(ret, config) = self.db.fetchOne(cherrypy.thread_data.conn, "select value from config where name='auto_confirm_time'")
+		(auto_confirm_time,) = config
+
+		#if the confirm is old then act as if it was reporteds
+		for Entry in confirms:
+			(kill_id, kill_datetime, reporting_killer) = Entry
+			TimeDiff = datetime.datetime.utcnow() - kill_datetime
+			if TimeDiff.total_seconds() >= auto_confirm_time:
+				self.KillPlayer(reporting_killer)
+
+		return
+
 	def AssignPlayers(self, players):
 		#game doesn't have assignments yet
 

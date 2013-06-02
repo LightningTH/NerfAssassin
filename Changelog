@@ -1,0 +1,11 @@
+1.1
+-Rewrote main code to allow multiple game types
+-Added in ability to auto-confirm players if player takes too long, configurable time
+-Added in functionality to lock the game early and email a confirmation that the player is still playing before game start, configurable amount of time
+-Rewrote scoring to be multi-game
+-Added in code to test email server response and disable accounts that fail while alerting the admin
+-https added
+-Fixed date/time to display based on server instead of client
+
+1.0
+-Initial version
