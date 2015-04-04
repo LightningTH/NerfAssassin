@@ -87,33 +87,19 @@ class NerfAssassin:
 			msg.attach(pic)
 
 		#go get the config settings
-		(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, value from config where name in ('from_email', 'email_subject', 'email_server', 'email_username', 'email_password','email_usetls', 'email_server_port')")
+		Settings = db.GetConfig(cherrypy.thread_data.conn, ['email_from', 'email_subject', 'email_server', 'email_username', 'email_password','email_usetls', 'email_server_port'])
 
-		Settings = dict()
-		for (conf_name, conf_value) in Config:
-			if(conf_name == "from_email"):
-				msg["From"] = conf_value
-			elif(conf_name == "email_subject"):
-				msg["Subject"] = conf_value
-			elif(conf_name == "email_server"):
-				Settings["Server"] = conf_value
-			elif(conf_name == "email_server_port"):
-				Settings["ServerPort"] = int(conf_value)
-			elif(conf_name == 'email_username'):
-				Settings["Username"] = conf_value
-			elif(conf_name == 'email_password'):
-				Settings["Password"] = conf_value
-			elif(conf_name == 'email_usetls'):
-				Settings["UseTLS"] = (int(conf_value) == 1)
+		msg["From"] = Settings["email_from"].Value
+		msg["Subject"] = Settings["email_subject"].Value
 			
 		# Send the email message
 		try:
-			server = smtplib.SMTP(Settings["Server"] + ":" + str(Settings["ServerPort"]))
+			server = smtplib.SMTP(Settings["Server"].Value + ":" + str(Settings["ServerPort"].Value))
 			server.ehlo()
-			if Settings["UseTLS"]:
+			if int(Settings["UseTLS"].Value) == 1:
 				server.starttls()
-			if len(Settings["Username"]) and len(Settings["Password"]):
-				server.login(Settings["Username"], Settings["Password"])
+			if len(Settings["Username"].Value) and len(Settings["Password"].Value):
+				server.login(Settings["Username"].Value, Settings["Password"].Value)
 			server.sendmail(msg["From"], [msg["To"]], msg.as_string())
 			server.quit()
 		except Exception as ex:
@@ -169,13 +155,22 @@ class NerfAssassin:
 		else:
 			raise cherrypy.HTTPRedirect("/")
 
+	def UpdateRank(self, id, GameTypeID, Ranking):
+		#insert or update a ranking for a game
+		try:
+			db.execute("update rankings set ranking=? where assassin_id=? and gametype_id=?", (Ranking, id, GameTypeID))
+		except:
+			#must not exist, insert it
+			db.execute("insert into rankings (ranking, assassin_id, gametype_id) values(?,?,?)", (Ranking, id, GameTypeID))
+		return
+
 	@cherrypy.expose
 	def report_killed(self):
 		if(self.ValidateLogin()):
 			gamehash = ''.join([random.choice(string.letters + string.digits) for i in range(32)])
 			(ret, row) = db.fetchOne(cherrypy.thread_data.conn,"select id from games where end_datetime is null")
 			if(row == None or len(row) == 0):
-				return html.display_message(self.ValidateLogin(), "Invalid ID")
+				return html.display_message(self.ValidateLogin(), "No active game")
 
 			(game_id, ) = row
 			db.execute(cherrypy.thread_data.conn,"insert into gameinfo(game_id, assassin_id, confirm_hash, reporting_killer) values(?,?,?,?)", (game_id, cherrypy.session.get("ProfileID"), gamehash, cherrypy.session.get("ProfileID")))
@@ -980,8 +975,8 @@ class NerfAssassin:
 
 		HTMLData = "<form action='config' method='POST'><table border=0>"
 
-		(ret, ConfigPass) = db.fetchOne(cherrypy.thread_data.conn, "select value from config where name = ?", ("config_password",)) 
-		if(len(ConfigPass[0]) == 0) or (bcrypt.checkpw(password, ConfigPass[0])):
+		ConfigPass = db.GetConfig(cherrypy.thread_data.conn, "config_password")
+		if(len(ConfigPass.Value) == 0) or (bcrypt.checkpw(password, ConfigPass.Value)):
 			if len(params):
 				for Entry in params:
 					if Entry == "config_password":
@@ -1007,9 +1002,12 @@ class NerfAssassin:
 						<tr><td align=center colspan=3><font color=#ff0000>Invalid password</font></td></tr>
 						"""
 
-		(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, name, value, description from config")
-		for i in xrange(len(Config)):
-			HTMLData = HTMLData + "<tr><td>%s</td><td><input name=%s value='%s'></td><td>%s</td></tr>" % Config[i]
+		#make sure the config shows up in key name order
+		Config = db.GetConfig(cherrypy.thread_data.conn, None)
+		ConfigKeys = Config.keys()
+		ConfigKeys.sort()
+		for i in ConfigKeys:
+			HTMLData = HTMLData + "<tr><td>%s</td><td><input name=%s value='%s'></td><td>%s</td></tr>" % (i, i, Config[i].Value, Config[i].Description)
 		HTMLData = HTMLData + "<tr><td height=20>----------------------</td></tr>"
 
 
@@ -1043,9 +1041,47 @@ class NerfAssassin:
 		return HTML + HTMLData + HTMLFoot
 
 	@cherrypy.expose
-	def stop(self, Message=""):
-		sys.exit()
+	def stop(self, **params):
+		HTML = """
+		<html>
+		<body>
+		<center>Stop Nerf Assassin Server</center>
+		<br>
+		<center>
+		"""
+		HTMLFoot = """
+		</center>
+		</body>
+		</html>
+		"""
 
+		password = ""
+		if("password" in params):
+			password = params.pop("password")
+
+		HTMLData = "<form action='stop' method='POST'><table border=0>"
+
+		ConfigPass = db.GetConfig(cherrypy.thread_data.conn, "config_password")
+		if(len(ConfigPass.Value) == 0) or (bcrypt.checkpw(password, ConfigPass.Value)):
+			cherrypy.engine.exit()
+
+		elif len(password):
+			HTMLData = HTMLData + 	"""
+						<tr><td align=center colspan=3><font color=#ff0000>Invalid password</font></td></tr>
+						"""
+		HTMLData = HTMLData + """
+					<tr>
+						<td>Password:</td>
+						<td colspan=2><input type='password' name='password'></td>
+					</tr>
+					<tr>
+						<td colspan=3 align=left><input type='submit' value="Submit"></td>
+					</tr>
+				</table>
+			</form>
+			"""
+		return HTML + HTMLData + HTMLFoot
+			
 	@cherrypy.expose
 	def index(self):
 		return open("index.html","r").read()
@@ -1110,11 +1146,21 @@ config = {
 }
 cherrypy.tree.mount(NerfAssassin(), "/", config=config)
 
+dbconn = db.make_connect()
+ServerInfo = db.GetConfig(dbconn, ["server_ip","server_port","server_ssl","server_private","server_certificate"])
+dbconn.close()
+
 cherrypy.config.update({
 		'request.error_response': handle_errors,
 		'error_page.default': error_page,
-		'server.socket_host': '127.0.0.1',
-		'server.socket_port': 8080})
+		'server.socket_host': ServerInfo["server_ip"].Value,
+		'server.socket_port': int(ServerInfo["server_port"].Value)})
 
+if int(ServerInfo["server_ssl"].Value) == 1:
+	cherrypy.config.update({
+			'server.ssl_module': 'pyopenssl',
+			'server.ssl_certificate': ServerInfo["server_certificate"].Value,
+			'server.ssl_private_key': ServerInfo["server_private"].Value})
+	
 cherrypy.engine.subscribe('start_thread',make_connect)
 cherrypy.server.start()

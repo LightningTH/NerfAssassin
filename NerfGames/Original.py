@@ -24,8 +24,7 @@ class NerfGame:
 			return
 
 		#get the config default time
-		(ret, config) = self.db.fetchOne(cherrypy.thread_data.conn, "select value from config where name='auto_confirm_time'")
-		(auto_confirm_time,) = config
+		auto_confirm_time = int(db.GetConfig(cherrypy.thread_data.conn, "auto_confirm_time").Value)
 
 		#if the confirm is old then act as if it was reported
 		for Entry in confirms:
@@ -125,7 +124,6 @@ class NerfGame:
 				Ranking = Ranking + 1
 				LastRating = rating
 
-			self.db.execute("update rankings set ranking=? where assassin_id=? and gametype_id=?", (Ranking, id, self.GameTypeID))
-	
+			self.NerfAssassin.UpdateRank(id, self.GameTypeID, Ranking)
 		return
 

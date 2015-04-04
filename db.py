@@ -1,6 +1,11 @@
 import sys
 import sqlite3
 
+class ConfigVals:
+	def __init__(self, Val, Desc):
+		self.Value = Val
+		self.Description = Desc
+
 def sanitize(**params):
 	for Entry in params:
 		if(type(params[Entry]) is str):
@@ -69,6 +74,39 @@ def execute(conn, query, *args):
 		sys.stdout.flush()
 
 	return row_count
+
+def GetConfig(conn, Entries):
+	HasEntries = True
+	if type(Entries) == list:
+		ConfigNames = "'" + "','".join(Entries).lower() + "'"
+	elif type(Entries) == type(None):
+		HasEntries = False
+	else:
+		ConfigNames = "'%s'" % (Entries)
+	ret = True
+	results = dict()
+	sys.stdout.flush()
+	cur = conn.cursor()
+
+	if HasEntries:
+		query = "select name, value, description from config where name in (" + ConfigNames + ")"
+	else:
+		#no entries specified, get all of them
+		query = "select name, value, description from config"
+
+	cur.execute(query)
+	results = cur.fetchall()
+
+	#return a dictionary of entries if a number of them were requested
+	#otherwise just return the one entry
+	if type(Entries) in (type(None), list):
+		ConfigResult = dict()
+		for i in xrange(0, len(results)):
+			ConfigResult[results[i][0]] = ConfigVals(results[i][1], results[i][2])
+	else:
+		ConfigResult = ConfigVals(results[0][1], results[0][2])
+
+	return ConfigResult
 
 def make_connect():
 	print "Making a new database connection"
