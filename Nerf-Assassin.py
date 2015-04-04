@@ -87,23 +87,39 @@ class NerfAssassin:
 			msg.attach(pic)
 
 		#go get the config settings
-		(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, value from config where name in ('from_email', 'email_subject', 'email_server')")
+		(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, value from config where name in ('from_email', 'email_subject', 'email_server', 'email_username', 'email_password','email_usetls', 'email_server_port')")
 
+		Settings = dict()
 		for (conf_name, conf_value) in Config:
 			if(conf_name == "from_email"):
 				msg["From"] = conf_value
-			else if(conf_name == "email_subject"):
+			elif(conf_name == "email_subject"):
 				msg["Subject"] = conf_value
-			else if(conf_name == "email_server"):
-				msg["Server"] = conf_value
- 
+			elif(conf_name == "email_server"):
+				Settings["Server"] = conf_value
+			elif(conf_name == "email_server_port"):
+				Settings["ServerPort"] = int(conf_value)
+			elif(conf_name == 'email_username'):
+				Settings["Username"] = conf_value
+			elif(conf_name == 'email_password'):
+				Settings["Password"] = conf_value
+			elif(conf_name == 'email_usetls'):
+				Settings["UseTLS"] = (int(conf_value) == 1)
+			
 		# Send the email message
-		server = smtplib.SMTP(msg["Server"])
-		server.ehlo()
-		server.sendmail(msg["From"], [msg["To"]], msg.as_string())
-		server.quit()
+		try:
+			server = smtplib.SMTP(Settings["Server"] + ":" + str(Settings["ServerPort"]))
+			server.ehlo()
+			if Settings["UseTLS"]:
+				server.starttls()
+			if len(Settings["Username"]) and len(Settings["Password"]):
+				server.login(Settings["Username"], Settings["Password"])
+			server.sendmail(msg["From"], [msg["To"]], msg.as_string())
+			server.quit()
+		except Exception as ex:
+			return str(ex)
 
-		return
+		return ""
 
 	def ValidateLogin(self, nickname="", password=""):
 		cherrypy.session.load()
@@ -216,7 +232,6 @@ class NerfAssassin:
 	@cherrypy.expose
 	def assassin_killed(self, **args):
 		#indicates the assassin was killed by their target
-		print "assassin_killed", args
 		if(self.ValidateLogin()):
 			if "confirmed" not in args:
 				return html.HMTLReplaceSection(self.ValidateLogin(), "confirm", open("static/confirm.html","r").read(), [{"confirm":args["id"], "url":"assassin_killed"}])
@@ -228,7 +243,6 @@ class NerfAssassin:
 				return self.profile()
 			
 		else:
-			print "ValidateLogin failed"
 			raise cherrypy.HTTPRedirect("/")
 
 	def kill_player(self, killer_id):
@@ -373,10 +387,14 @@ class NerfAssassin:
 				if(row == None or len(row) == 0):
 					return html.display_message(self.ValidateLogin(), "Invalid rule")
 
+				(ret, row) = db.fetchOne(cherrypy.thread_data.conn,"select id from gametypes where id = ?", (args["gametypeid"],))
+				if(row == None or len(row) == 0):
+					return html.display_message(self.ValidateLogin(), "Invalid game type")
+
 				#adjust for utc
 				LocalStartDate = StartDate
 				StartDate = StartDate + (datetime.datetime.utcnow() - datetime.datetime.now())
-				db.execute(cherrypy.thread_data.conn,"insert into games(start_datetime, rule_id) values(datetime(?),?)", (StartDate.strftime("%Y-%m-%d %H:%M"), args["gamerules"]))
+				db.execute(cherrypy.thread_data.conn,"insert into games(start_datetime, rule_id) values(datetime(?),?,?)", (StartDate.strftime("%Y-%m-%d %H:%M"), args["gamerules"], args["gametypeid"]))
 
 				(ret, row) = db.fetchOne(cherrypy.thread_data.conn,"select id from games where end_datetime is null")
 				(game_id,) = row
@@ -392,7 +410,7 @@ class NerfAssassin:
 
 	@cherrypy.expose
 	def games(self, **args):
-		(ret, rows) = db.fetchAll(cherrypy.thread_data.conn,"select g.id, g.start_datetime [timestamp], g.end_datetime [timestamp], r.rules from games g left join rules r on g.rule_id=r.id order by g.start_datetime desc")
+		(ret, rows) = db.fetchAll(cherrypy.thread_data.conn,"select g.id, g.start_datetime [timestamp], g.end_datetime [timestamp], r.rules, g.gametype, gt.name from games g left join rules r on g.rule_id=r.id left join gametypes gt on g.gametype=gt.id order by g.start_datetime desc")
 
 		GameHTML = open("static/games.html", "r").read()
 		GameHTML = html.HTMLCheckLoggedIn(self.ValidateLogin(), GameHTML)
@@ -923,6 +941,23 @@ class NerfAssassin:
 		else:
 			return html.display_message(self.ValidateLogin(), "No access")	
 
+
+	@cherrypy.expose
+	def TestEmail(self, **params):
+		TestMsg = self.SendEmail(params["to_email"], "Test email from Nerf Assassin")
+		if len(TestMsg) == 0:
+			TestMsg = "sent"
+		else:
+			TestMsg = "failed - " + TestMsg
+
+		return """
+		<html>
+		<body>
+		<center>Test Email %s</center>
+		</body>
+		</html>
+		""" % (TestMsg)
+
 	@cherrypy.expose
 	def config(self, **params):
 
@@ -930,8 +965,11 @@ class NerfAssassin:
 		<html>
 		<body>
 		<center>Config for Nerf Assassin</center>
+		<br>
+		<center>
 		"""
 		HTMLFoot = """
+		</center>
 		</body>
 		</html>
 		"""
@@ -941,29 +979,66 @@ class NerfAssassin:
 			password = params.pop("password")
 
 		HTMLData = "<form action='config' method='POST'><table border=0>"
-		Hash = ""
-		if(bcrypt.hashpw(password, Hash) == Hash):
+
+		(ret, ConfigPass) = db.fetchOne(cherrypy.thread_data.conn, "select value from config where name = ?", ("config_password",)) 
+		if(len(ConfigPass[0]) == 0) or (bcrypt.checkpw(password, ConfigPass[0])):
 			if len(params):
 				for Entry in params:
-					db.execute(cherrypy.thread_data.conn,"Update config set value = ? where name = ?", (params[Entry], Entry));
-				HTMLData = HTMLData + "<center>Config updated</center><br>"
+					if Entry == "config_password":
+						#make sure we encrypt it if it was changed, we test for this by seeing if we can do a check with the
+						#value provided otherwise it is unchanged so don't modify it
+						#bcrypt will throw exceptions at times if bad data is passed in
+						PassChanged = True
+						try:
+							if bcrypt.checkpw(password, params[Entry]) == True:
+								PassChanged = False
+						except:
+							pass
 
-			(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, value from config")
-			for (conf_name, conf_value) in Config:
-				HTMLData = HTMLData + "<tr><td>" + conf_name + "</td><td><input name=" + conf_name + " value='" + conf_value + "'></td></tr>"
-			HTMLData = HTMLData + "<tr><td height=20>----------------------</td></tr>"
+						#failed to validate, encrypt the password provided
+						if PassChanged:
+							params[Entry] = bcrypt.hashpw(params[Entry], bcrypt.gensalt())
+
+					#update the database
+					db.execute(cherrypy.thread_data.conn,"Update config set value = ? where name = ?", (params[Entry], Entry));
+				HTMLData = HTMLData + "<tr><td align=center colspan=3>Config updated</center></td></tr>"
+		elif len(password):
+			HTMLData = HTMLData + 	"""
+						<tr><td align=center colspan=3><font color=#ff0000>Invalid password</font></td></tr>
+						"""
+
+		(ret, Config) = db.fetchAll(cherrypy.thread_data.conn,"Select name, name, value, description from config")
+		for i in xrange(len(Config)):
+			HTMLData = HTMLData + "<tr><td>%s</td><td><input name=%s value='%s'></td><td>%s</td></tr>" % Config[i]
+		HTMLData = HTMLData + "<tr><td height=20>----------------------</td></tr>"
+
 
 		HTMLData = HTMLData + """
 					<tr>
 						<td>Password:</td>
-						<td><input type='password' name='password'></td>
+						<td colspan=2><input type='password' name='password'></td>
 					</tr>
 					<tr>
-						<td colspan=2 align=left><input type='submit' value="Submit"></td>
+						<td colspan=3 align=left><input type='submit' value="Submit"></td>
 					</tr>
 				</table>
 			</form>
 			"""
+
+		HTMLData = HTMLData + 	"""
+				<br><br>
+				<form action='TestEmail' method='POST'><table border=0>
+					<tr>
+						<td colspan=3 align=center>Send Test Email</td>
+					</tr>
+					<tr>
+						<td>To:</td>
+						<td><input type='text' name='to_email'></td>
+						<td><input type='submit' value="Submit"></td>
+					</tr>
+				</table>
+				</form>
+					"""
 
 		return HTML + HTMLData + HTMLFoot
 

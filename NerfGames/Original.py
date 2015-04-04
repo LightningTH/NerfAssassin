@@ -27,11 +27,11 @@ class NerfGame:
 		(ret, config) = self.db.fetchOne(cherrypy.thread_data.conn, "select value from config where name='auto_confirm_time'")
 		(auto_confirm_time,) = config
 
-		#if the confirm is old then act as if it was reporteds
+		#if the confirm is old then act as if it was reported
 		for Entry in confirms:
 			(kill_id, kill_datetime, reporting_killer) = Entry
 			TimeDiff = datetime.datetime.utcnow() - kill_datetime
-			if TimeDiff.total_seconds() >= auto_confirm_time:
+			if (TimeDiff.total_seconds() / 60) >= auto_confirm_time:
 				self.KillPlayer(reporting_killer)
 
 		return
@@ -80,14 +80,14 @@ class NerfGame:
 		#add up all positive and negative entries for people
 		Stats = dict()
 		for (player_id,) in players:
-			(ret, games) = self.db.fetchAll("select distinct gi.game_id, gi.ranking from gameinfo gi, games g where gi.target_id=? and gi.ranking is not null and gi.game_id = g.game_id and g.gametype_id=?", (player_id, self.GameTypeID))
+			(ret, games) = self.db.fetchAll("select distinct gi.game_id, gi.ranking, g.start_datetime [timestamp] from gameinfo gi, games g where gi.target_id=? and gi.ranking is not null and gi.game_id = g.game_id and g.gametype_id=?", (player_id, self.GameTypeID))
 
 			#if no games, ignore them
 			if(len(games) == 0):
 				continue
 
 			Stats[player_id] = (1,1)
-			for (game_id,ranking) in games:
+			for (game_id,ranking,start_datetime) in games:
 				(ret, gamestats) = self.db.fetchOne("select count(distinct(target_id)) from gameinfo where game_id=?", (game_id,))
 				(totalcount,) = gamestats
 
@@ -95,17 +95,25 @@ class NerfGame:
 
 				positive = positive + (totalcount - ranking) 
 				negative = negative + ranking
-				Stats[player_id] = (positive,negative)
+				timediff = datetime.datetime.utcnow() - start_datetime
+				timediff = timediff.days()
+
+				#if they have played in the last 2 months they get full score, otherwise a sliding scale of 10% per month loss
+				if timediff < 60:
+					totalamount = 1.0
+				else:
+					totalamount = 1.0 - (0.1 * (float(timediff - 60) / 30.0))
+				Stats[player_id] = (positive,negative, totalamount)
 
 
 		#go thru and calculate percentages for everyone
 		NewStats = []
 		for Entry in Stats:
-			(positive, negative) = Stats[Entry]
+			(positive, negative, totalamount) = Stats[Entry]
 			if(positive == negative):
 				negative = negative + 1
 
-			NewStats.append((self._CalcRating(positive, negative), Entry))
+			NewStats.append((self._CalcRating(positive, negative) * totalamount, Entry))
 
 		#sort the new list by percentages then update the database
 		NewStats.sort()

@@ -6,6 +6,7 @@
 -Added in code to test email server response and disable accounts that fail while alerting the admin
 -https added
 -Fixed date/time to display based on server instead of client
+-Add in FAQ entries and html
 
 1.0
 -Initial version

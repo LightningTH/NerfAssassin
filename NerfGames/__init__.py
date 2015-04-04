@@ -8,7 +8,7 @@ _gameids = dict()
 
 _gamearray = []
 
-_defaultgame = None
+_emptygame = None
 
 for module in os.listdir(os.path.dirname(__file__)):
 	if module == "__init__.py" or module[-3:] != ".py":
@@ -16,8 +16,8 @@ for module in os.listdir(os.path.dirname(__file__)):
 
 	try:
 		temp = __import__(module[:-3], globals(), locals(),["NerfGame"], -1)
-		if(module[:-3].lower() == 'default'):
-			_defaultgame = temp
+		if(module[:-3].lower() == 'empty'):
+			_emptygame = temp
 		else:
 			_games[module[:-3].lower()] = temp.NerfGame
 	except:
@@ -29,7 +29,7 @@ del os
 del sys
 
 def InitGameIDs(db):
-	(ret, rows) = db.fetchAll("select game_id, gamename from gametypes")
+	(ret, rows) = db.fetchAll("select id, name from gametypes")
 
 	MaxID = -1
 	gamelist = dict(_games)
@@ -42,16 +42,16 @@ def InitGameIDs(db):
 			_gamearray.append((game_id, gamename))
 			gamelist.pop(gamename.lower())
 		except:
-			#found a game no longer in the database, use our default module so rest of the system doesn't fail
-			_gameids[game_id] = _default
-			_games[gamename.lower()] = _default
+			#found a game in the database but no longer physically exists, use our empty module so rest of the system doesn't fail
+			_gameids[game_id] = _emptygame
+			_games[gamename.lower()] = _emptygame
 			_gamearray.append((game_id, gamename))
 
 
 	#for any games not in the database, add them
 	for gamename in gamelist:
 		MaxID += 1
-		db.execute("insert into gametypes (game_id, gamename) values(?, ?)", (MaxID, gamename))
+		db.execute("insert into gametypes (id, name) values(?, ?)", (MaxID, gamename))
 		_gameids[MaxID] = _games[gamename.lower()]
 		_gamearray.append((MaxID, gamename))
 		
